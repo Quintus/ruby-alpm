@@ -1,11 +1,11 @@
 #ifndef RUBY_ALPM_MAIN_H
 #define RUBY_ALPM_MAIN_H
+#include <ruby.h>
+#include <alpm.h>
+#include <alpm_list.h>
 
 // Directly creates a Ruby Symbol from a C string.
 #define STR2SYM(str) ID2SYM(rb_intern(str))
-
-#include <ruby.h>
-#include <alpm.h>
 
 extern VALUE Alpm;
 extern VALUE AlpmError;

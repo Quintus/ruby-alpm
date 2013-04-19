@@ -1,6 +1,7 @@
 #include "main.h"
 #include "package.h"
 #include "transaction.h"
+#include "database.h"
 
 /***************************************
  * Variables, etc
@@ -9,6 +10,8 @@
 VALUE Alpm;
 VALUE AlpmError;
 
+/** Raises the last libalpm error as a Ruby exception of
+ * class Alpm::AlpmError. */
 VALUE raise_last_alpm_error(alpm_handle_t* p_handle)
 {
   const char* msg = alpm_strerror(alpm_errno(p_handle));
@@ -355,6 +358,62 @@ static VALUE transaction(int argc, VALUE argv[], VALUE self)
   return result;
 }
 
+/**
+ * call-seq:
+ *   local_db() → a_database
+ *
+ * Returns the database of locally installed packages.
+ * An instance of Database.
+ */
+static VALUE local_db(VALUE self)
+{
+  alpm_handle_t* p_alpm = NULL;
+  alpm_db_t* p_db = NULL;
+  Data_Get_Struct(self, alpm_handle_t, p_alpm);
+
+  p_db = alpm_get_localdb(p_alpm);
+  if (!p_db) {
+    rb_raise(AlpmError, "Failed to retrieve local DB from libalpm.");
+    return Qnil;
+  }
+
+  return Data_Wrap_Struct(Database, NULL, NULL, p_db);
+}
+
+/**
+ * call-seq:
+ *   sync_dbs() → an_array
+ *
+ * Returns an array of Database instances, each representing a single
+ * sync database.
+ */
+static VALUE sync_dbs(VALUE self)
+{
+  alpm_handle_t* p_alpm = NULL;
+  alpm_list_t* p_dbs = NULL;
+  VALUE result;
+  unsigned int i;
+  Data_Get_Struct(self, alpm_handle_t, p_alpm);
+
+
+  /* Get the list of all DBs */
+  p_dbs = alpm_get_syncdbs(p_alpm);
+  if (!p_dbs) {
+    rb_raise(AlpmError, "Failed to retrieve sync DBs from libalpm.");
+    return Qnil;
+  }
+
+  /* Transform them into a Ruby array of Database instances */
+  result = rb_ary_new();
+  for(i=0; i < alpm_list_count(p_dbs); i++) {
+    VALUE db = Data_Wrap_Struct(Database, NULL, NULL, alpm_list_nth(p_dbs, i));
+    rb_ary_push(result, db);
+  }
+
+  /* Return that array */
+  return result;
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -402,7 +461,10 @@ void Init_alpm()
   rb_define_method(Alpm, "arch", RUBY_METHOD_FUNC(get_arch), 0);
   rb_define_method(Alpm, "arch=", RUBY_METHOD_FUNC(set_arch), 1);
   rb_define_method(Alpm, "transaction", RUBY_METHOD_FUNC(transaction), -1);
+  rb_define_method(Alpm, "local_db", RUBY_METHOD_FUNC(local_db), 0);
+  rb_define_method(Alpm, "sync_dbs", RUBY_METHOD_FUNC(sync_dbs), 0);
 
+  Init_database();
   Init_transaction();
   Init_package();
 }

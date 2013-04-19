@@ -10,6 +10,12 @@ VALUE Package;
  * Methods
  ***************************************/
 
+static VALUE initialize(VALUE self)
+{
+  rb_raise(rb_eNotImpError, "Can't create new packages with this library.");
+  return self;
+}
+
 /**
  * call-seq:
  *   filename() → a_string
@@ -60,6 +66,7 @@ void Init_package()
 {
   Package = rb_define_class_under(Alpm, "Package", rb_cObject);
 
+  rb_define_method(Package, "initialize", RUBY_METHOD_FUNC(initialize), 0); /** :nodoc: */
   rb_define_method(Package, "filename", filename, 0);
   rb_define_method(Package, "name", name, 0);
   rb_define_method(Package, "version", version, 0);
