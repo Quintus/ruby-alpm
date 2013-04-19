@@ -1,32 +1,20 @@
 #include "main.h"
-
-/**
- * Document-class: Alpm
- *
- * Main class for interacting with Archlinux’ package management system.
- * Each instance operates on a _root_ directory (where packages are installed
- * under) and a _db_ directory (where permanent information like the list of
- * installed packages is kept). Additionally, it needs a #gpgdir to save the
- * package maintainer’s keyring to and an #arch, the CPU architecture to
- * download packages for.
- *
- * For a normal Archlinux system, the values are as follows:
- *
- * [root]
- *   /
- * [dbdir]
- *   /var/lib/pacman
- * [gpgdir]
- *   /etc/pacman.d/gnupg
- * [arch]
- *   <tt>x86_64</tt>
- */
+#include "package.h"
+#include "transaction.h"
 
 /***************************************
  * Variables, etc
  ***************************************/
 
 VALUE Alpm;
+VALUE AlpmError;
+
+VALUE raise_last_alpm_error(alpm_handle_t* p_handle)
+{
+  const char* msg = alpm_strerror(alpm_errno(p_handle));
+  rb_raise(AlpmError, msg);
+  return Qnil;
+}
 
 void log_callback(alpm_loglevel_t level, const char* msg, ...)
 {
@@ -237,13 +225,171 @@ static VALUE set_arch(VALUE self, VALUE arch)
   return arch;
 }
 
+/**
+ * call-seq:
+ *   transaction( [ flags ] ){|transaction|...} → an_object
+ *
+ * Puts libalpm into transaction mode, i.e. allows you to add
+ * and remove packaages by means of a transaction. The block
+ * gets called with an instance of the (otherwise uninstanciatable,
+ * this is a libalpm restriction) Transaction class, which you can
+ * freely modify for your operations. When you added all packages
+ * you want to add/remove to/from the system, call Transaction#prepare
+ * in order to have libalpm resolve dependencies and other stuff.
+ * You can then call Transaction#commit to execute your transaction.
+ *
+ * === Parameters
+ * [flags ({})]
+ *   A hash with the following keys:
+ *   [:nodeps]
+ *     Ignore dependency checks.
+ *   [:force]
+ *     Ignore file conflicts and overwrite files.
+ *   [:nosave]
+ *     Delete files even if they are tagged as backup.
+ *   [:nodepversion]
+ *     Ignore version numbers when checking dependencies.
+ *   [:cascade]
+ *     Remove also any packages depending on a package being removed.
+ *   [:recurse]
+ *     Remove packages and their unneeded deps (not explicitely installed).
+ *   [:dbonly]
+ *     Modify database but do not commit changes to the filesystem.
+ *   [:alldeps]
+ *     Use ALPM_REASON_DEPEND when installing packages.
+ *   [:downloadonly]
+ *     Only download packages and do not actually install.
+ *   [:noscriptlet]
+ *     Do not execute install scriptlets after installing.
+ *   [:noconflicts]
+ *     Ignore dependency conflicts.
+ *   [:needed]
+ *     Do not install a package if it is already installed and up to date.
+ *   [:allexplicit]
+ *     Use ALPM_PKG_REASON_EXPLICIT when installing packages.
+ *   [:unneeded]
+ *     Do not remove a package if it is needed by another one.
+ *   [:recurseall]
+ *     Remove also explicitely installed unneeded deps (use with :recurse).
+ *   [:nolock]
+ *     Do not lock the database during the operation.
+ *
+ * === Return value
+ * The result of the block’s last expression.
+ *
+ * === Remarks
+ * Do not store the Transaction instance somewhere; this will give
+ * you grief, because it is a transient object always referring to
+ * the currently active transaction or bomb if there is none.
+ */
+static VALUE transaction(int argc, VALUE argv[], VALUE self)
+{
+  VALUE transaction;
+  VALUE result;
+  alpm_handle_t* p_alpm = NULL;
+  alpm_transflag_t flags = 0;
+
+  Data_Get_Struct(self, alpm_handle_t, p_alpm);
+
+  if (argc == 1) {
+    if (TYPE(argv[0]) != T_HASH)
+      rb_raise(rb_eTypeError, "Argument is not a hash.");
+
+    if (rb_hash_aref(flags, STR2SYM("nodeps")))
+      flags |= ALPM_TRANS_FLAG_NODEPS;
+    if (rb_hash_aref(flags, STR2SYM("force")))
+      flags |= ALPM_TRANS_FLAG_FORCE;
+    if (rb_hash_aref(flags, STR2SYM("nosave")))
+      flags |= ALPM_TRANS_FLAG_NOSAVE;
+    if (rb_hash_aref(flags, STR2SYM("nodepversion")))
+      flags |= ALPM_TRANS_FLAG_NODEPVERSION;
+    if (rb_hash_aref(flags, STR2SYM("cascade")))
+      flags |= ALPM_TRANS_FLAG_CASCADE;
+    if (rb_hash_aref(flags, STR2SYM("recurse")))
+      flags |= ALPM_TRANS_FLAG_RECURSE;
+    if (rb_hash_aref(flags, STR2SYM("dbonly")))
+      flags |= ALPM_TRANS_FLAG_DBONLY;
+    if (rb_hash_aref(flags, STR2SYM("alldeps")))
+      flags |= ALPM_TRANS_FLAG_ALLDEPS;
+    if (rb_hash_aref(flags, STR2SYM("downloadonly")))
+      flags |= ALPM_TRANS_FLAG_DOWNLOADONLY;
+    if (rb_hash_aref(flags, STR2SYM("noscriptlet")))
+      flags |= ALPM_TRANS_FLAG_NOSCRIPTLET;
+    if (rb_hash_aref(flags, STR2SYM("noconflicts")))
+      flags |= ALPM_TRANS_FLAG_NOCONFLICTS;
+    if (rb_hash_aref(flags, STR2SYM("needed")))
+      flags |= ALPM_TRANS_FLAG_NEEDED;
+    if (rb_hash_aref(flags, STR2SYM("allexplicit")))
+      flags |= ALPM_TRANS_FLAG_ALLEXPLICIT;
+    if (rb_hash_aref(flags, STR2SYM("unneeded")))
+      flags |= ALPM_TRANS_FLAG_UNNEEDED;
+    if (rb_hash_aref(flags, STR2SYM("recurseall")))
+      flags |= ALPM_TRANS_FLAG_RECURSEALL;
+    if (rb_hash_aref(flags, STR2SYM("nolock")))
+      flags |= ALPM_TRANS_FLAG_NOLOCK;
+  }
+  else {
+    rb_raise(rb_eArgError, "Wrong number of arguments, expected 0..1, got %d.", argc);
+    return Qnil;
+  }
+
+  /* Create the transaction */
+  if (alpm_trans_init(p_alpm, flags) < 0)
+    return raise_last_alpm_error(p_alpm);
+
+  /* Create an instance of Transaction. Note that alpm forces
+   * you to only have *one* single Transaction instance, hence
+   * there is no other way to instanciate this class apart from
+   * this method. The user now modify and exute this sole
+   * transaction. */
+  transaction = rb_obj_alloc(Transaction);
+  rb_funcall(transaction, rb_intern("alpm="), 1, self);
+  result = rb_yield(transaction);
+
+  /* When we get here we assume the user is done with
+   * his stuff. Clean up. */
+  if (alpm_trans_release(p_alpm) < 0)
+    return raise_last_alpm_error(p_alpm);
+
+  /* Return the last value from the block */
+  return result;
+}
+
 /***************************************
  * Binding
  ***************************************/
 
+/**
+ * Document-class: Alpm::Error
+ *
+ * Exception class for errors in this library.
+ */
+
+/**
+ * Document-class: Alpm
+ *
+ * Main class for interacting with Archlinux’ package management system.
+ * Each instance operates on a _root_ directory (where packages are installed
+ * under) and a _db_ directory (where permanent information like the list of
+ * installed packages is kept). Additionally, it needs a #gpgdir to save the
+ * package maintainer’s keyring to and an #arch, the CPU architecture to
+ * download packages for.
+ *
+ * For a normal Archlinux system, the values are as follows:
+ *
+ * [root]
+ *   /
+ * [dbdir]
+ *   /var/lib/pacman
+ * [gpgdir]
+ *   /etc/pacman.d/gnupg
+ * [arch]
+ *   <tt>x86_64</tt>
+ */
 void Init_alpm()
 {
   Alpm = rb_define_class("Alpm", rb_cObject);
+  AlpmError = rb_define_class_under(Alpm, "AlpmError", rb_eStandardError);
   rb_define_alloc_func(Alpm, allocate);
 
   rb_define_method(Alpm, "initialize", RUBY_METHOD_FUNC(initialize), 2);
@@ -255,4 +401,8 @@ void Init_alpm()
   rb_define_method(Alpm, "gpgdir=", RUBY_METHOD_FUNC(set_gpgdir), 1);
   rb_define_method(Alpm, "arch", RUBY_METHOD_FUNC(get_arch), 0);
   rb_define_method(Alpm, "arch=", RUBY_METHOD_FUNC(set_arch), 1);
+  rb_define_method(Alpm, "transaction", RUBY_METHOD_FUNC(transaction), -1);
+
+  Init_transaction();
+  Init_package();
 }
