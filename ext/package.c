@@ -79,6 +79,108 @@ static VALUE inspect(VALUE self)
   return rb_str_new(buf, len);
 }
 
+/**
+ * call-seq:
+ *   description() → a_string
+ *   desc()        → a_string
+ *
+ * Returns the description for this package.
+ */
+static VALUE description(VALUE self)
+{
+  alpm_pkg_t* p_pkg = NULL;
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg);
+
+  return rb_str_new2(alpm_pkg_get_desc(p_pkg));
+}
+
+/**
+ * call-seq:
+ *   url() → a_string
+ *
+ * Returns the homepage for this package.
+ */
+static VALUE url(VALUE self)
+{
+  alpm_pkg_t* p_pkg = NULL;
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg);
+
+  return rb_str_new2(alpm_pkg_get_url(p_pkg));
+}
+
+/**
+ * call-seq:
+ *   packager() → a_string
+ *
+ * The packager’s name.
+ */
+static VALUE packager(VALUE self)
+{
+  alpm_pkg_t* p_pkg = NULL;
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg);
+
+  return rb_str_new2(alpm_pkg_get_packager(p_pkg));
+}
+
+/**
+ * call-seq:
+ *   md5sum() → a_string
+ *
+ * The package’s MD5 checksum
+ */
+static VALUE md5sum(VALUE self)
+{
+  alpm_pkg_t* p_pkg = NULL;
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg);
+
+  return rb_str_new2(alpm_pkg_get_md5sum(p_pkg));
+}
+
+/**
+ * call-seq:
+ *   sha256sum() → a_string
+ *
+ * The package’s SHA256 checksum
+ */
+static VALUE sha256sum(VALUE self)
+{
+  alpm_pkg_t* p_pkg = NULL;
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg);
+
+  return rb_str_new2(alpm_pkg_get_sha256sum(p_pkg));
+}
+
+/**
+ * call-seq:
+ *   size() → an_integer
+ *
+ * The size of the package, in bytes. Only available for sync
+ * databases and package files, not for packages from
+ * the +local+ database.
+ */
+static VALUE size(VALUE self)
+{
+  alpm_pkg_t* p_pkg = NULL;
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg);
+
+  return LONG2NUM(alpm_pkg_get_size(p_pkg));
+}
+
+/**
+ * call-seq:
+ *   installed_size() → an_integer
+ *   isize() → an_integer
+ *
+ * The installed size of the package, in bytes.
+ */
+static VALUE installed_size(VALUE self)
+{
+  alpm_pkg_t* p_pkg = NULL;
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg);
+
+  return LONG2NUM(alpm_pkg_get_isize(p_pkg));
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -92,4 +194,14 @@ void Init_package()
   rb_define_method(rb_cAlpm_Package, "name", name, 0);
   rb_define_method(rb_cAlpm_Package, "version", version, 0);
   rb_define_method(rb_cAlpm_Package, "inspect", RUBY_METHOD_FUNC(inspect), 0);
+  rb_define_method(rb_cAlpm_Package, "description", RUBY_METHOD_FUNC(description), 0);
+  rb_define_method(rb_cAlpm_Package, "url", RUBY_METHOD_FUNC(url), 0);
+  rb_define_method(rb_cAlpm_Package, "md5sum", RUBY_METHOD_FUNC(md5sum), 0);
+  rb_define_method(rb_cAlpm_Package, "sha256sum", RUBY_METHOD_FUNC(sha256sum), 0);
+  rb_define_method(rb_cAlpm_Package, "size", RUBY_METHOD_FUNC(size), 0);
+  rb_define_method(rb_cAlpm_Package, "installed_size", RUBY_METHOD_FUNC(installed_size), 0);
+  rb_define_method(rb_cAlpm_Package, "packager", RUBY_METHOD_FUNC(packager), 0);
+
+  rb_define_alias(rb_cAlpm_Package, "desc", "description");
+  rb_define_alias(rb_cAlpm_Package, "isize", "installed_size");
 }
