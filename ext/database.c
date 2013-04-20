@@ -74,6 +74,22 @@ static VALUE inspect(VALUE self)
   return rb_str_new(buf, len);
 }
 
+/**
+ * call-seq:
+ *   valid?() → true or false
+ *
+ * Checks if the database is in a valid state (mostly useful
+ * for verifying signature status). If this returns false,
+ * check out Alpm::errno for the reason.
+ */
+static VALUE valid(VALUE self)
+{
+  alpm_db_t* p_db = NULL;
+  Data_Get_Struct(self, alpm_db_t, p_db);
+
+  return alpm_db_get_valid(p_db) == 0 ? Qtrue : Qfalse;
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -96,4 +112,5 @@ void Init_database()
   rb_define_method(rb_cAlpm_Database, "get", RUBY_METHOD_FUNC(get), 1);
   rb_define_method(rb_cAlpm_Database, "name", RUBY_METHOD_FUNC(name), 0);
   rb_define_method(rb_cAlpm_Database, "inspect", RUBY_METHOD_FUNC(inspect), 0);
+  rb_define_method(rb_cAlpm_Database, "valid?", RUBY_METHOD_FUNC(valid), 0);
 }

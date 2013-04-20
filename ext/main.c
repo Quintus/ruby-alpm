@@ -547,6 +547,38 @@ static VALUE load_package(int argc, VALUE argv[], VALUE self)
   return Data_Wrap_Struct(rb_cAlpm_Package, NULL, free_loaded_pkg, p_pkg);
 }
 
+/**
+ * call-seq:
+ *   errno() → an_integer
+ *
+ * Error code of the last encountered error. See libalpm source
+ * for the exact possible values. See #strerror for getting a
+ * human-readable description from an error code.
+ *
+ * Beware this method returns nonsense if there was no error
+ * enountered.
+ */
+static VALUE rberrno(VALUE self)
+{
+  alpm_handle_t* p_alpm = NULL;
+  Data_Get_Struct(self, alpm_handle_t, p_alpm);
+
+  return INT2NUM(alpm_errno(p_alpm));
+}
+
+/**
+ * call-seq:
+ *   strerror( code ) → a_string
+ *
+ * Takes a libalpm error code and returns a human-readable
+ * description for it. The last encountered error’s code
+ * can be obtained via #errno.
+ */
+static VALUE rbstrerror(VALUE self, VALUE errcode)
+{
+  return rb_str_new2(alpm_strerror(NUM2INT(errcode)));
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -598,6 +630,8 @@ void Init_alpm()
   rb_define_method(rb_cAlpm, "sync_dbs", RUBY_METHOD_FUNC(sync_dbs), 0);
   rb_define_method(rb_cAlpm, "register_syncdb", RUBY_METHOD_FUNC(register_syncdb), 2);
   rb_define_method(rb_cAlpm, "load_package", RUBY_METHOD_FUNC(load_package), -1);
+  rb_define_method(rb_cAlpm, "errno", RUBY_METHOD_FUNC(rberrno), 0);
+  rb_define_method(rb_cAlpm, "strerror", RUBY_METHOD_FUNC(rbstrerror), 1);
 
   Init_database();
   Init_transaction();
