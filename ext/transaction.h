@@ -3,7 +3,7 @@
 #include "main.h"
 #include "package.h"
 
-extern VALUE Transaction;
+extern VALUE rb_cAlpm_Transaction;
 
 void Init_transaction();
 

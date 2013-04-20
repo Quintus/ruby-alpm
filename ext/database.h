@@ -3,7 +3,7 @@
 #include "main.h"
 #include "package.h"
 
-VALUE Database;
+extern VALUE rb_cAlpm_Database;
 
 void Init_database();
 

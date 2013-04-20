@@ -4,7 +4,7 @@
  * Variables
  ***************************************/
 
-VALUE Database;
+VALUE rb_cAlpm_Database;
 
 /***************************************
  * Methods
@@ -52,7 +52,7 @@ static VALUE get(VALUE self, VALUE name)
   p_pkg = alpm_db_get_pkg(p_db, StringValuePtr(name));
 
   if (p_pkg)
-    return Data_Wrap_Struct(Package, NULL, NULL, p_pkg);
+    return Data_Wrap_Struct(rb_cAlpm_Package, NULL, NULL, p_pkg);
   else
     return Qnil;
 }
@@ -63,8 +63,6 @@ static VALUE get(VALUE self, VALUE name)
 
 
 /**
- * Document-class: Alpm::Database
- *
  * A Database is the list of packages in a repository, where the notion
  * of the "repository" is an abstract one. It may be an actual remote
  * repository, or just represent the current system state. It does not
@@ -75,10 +73,10 @@ static VALUE get(VALUE self, VALUE name)
  */
 void Init_database()
 {
-  Database = rb_define_class_under(Alpm, "Database", rb_cObject);
+  rb_cAlpm_Database = rb_define_class_under(rb_cAlpm, "Database", rb_cObject);
 
-  rb_define_singleton_method(Database, "get", RUBY_METHOD_FUNC(get), 1);
+  rb_define_singleton_method(rb_cAlpm_Database, "get", RUBY_METHOD_FUNC(get), 1);
 
-  rb_define_method(Database, "initialize", RUBY_METHOD_FUNC(initialize), 0);
-  rb_define_method(Database, "name", RUBY_METHOD_FUNC(name), 0);
+  rb_define_method(rb_cAlpm_Database, "initialize", RUBY_METHOD_FUNC(initialize), 0);
+  rb_define_method(rb_cAlpm_Database, "name", RUBY_METHOD_FUNC(name), 0);
 }

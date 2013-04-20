@@ -7,15 +7,15 @@
  * Variables, etc
  ***************************************/
 
-VALUE Alpm;
-VALUE AlpmError;
+VALUE rb_cAlpm;
+VALUE rb_eAlpm_Error;
 
 /** Raises the last libalpm error as a Ruby exception of
  * class Alpm::AlpmError. */
 VALUE raise_last_alpm_error(alpm_handle_t* p_handle)
 {
   const char* msg = alpm_strerror(alpm_errno(p_handle));
-  rb_raise(AlpmError, msg);
+  rb_raise(rb_eAlpm_Error, msg);
   return Qnil;
 }
 
@@ -345,7 +345,7 @@ static VALUE transaction(int argc, VALUE argv[], VALUE self)
    * there is no other way to instanciate this class apart from
    * this method. The user now modify and exute this sole
    * transaction. */
-  transaction = rb_obj_alloc(Transaction);
+  transaction = rb_obj_alloc(rb_cAlpm_Transaction);
   rb_funcall(transaction, rb_intern("alpm="), 1, self);
   result = rb_yield(transaction);
 
@@ -373,11 +373,11 @@ static VALUE local_db(VALUE self)
 
   p_db = alpm_get_localdb(p_alpm);
   if (!p_db) {
-    rb_raise(AlpmError, "Failed to retrieve local DB from libalpm.");
+    rb_raise(rb_eAlpm_Error, "Failed to retrieve local DB from libalpm.");
     return Qnil;
   }
 
-  return Data_Wrap_Struct(Database, NULL, NULL, p_db);
+  return Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, p_db);
 }
 
 /**
@@ -399,14 +399,14 @@ static VALUE sync_dbs(VALUE self)
   /* Get the list of all DBs */
   p_dbs = alpm_get_syncdbs(p_alpm);
   if (!p_dbs) {
-    rb_raise(AlpmError, "Failed to retrieve sync DBs from libalpm.");
+    rb_raise(rb_eAlpm_Error, "Failed to retrieve sync DBs from libalpm.");
     return Qnil;
   }
 
   /* Transform them into a Ruby array of Database instances */
   result = rb_ary_new();
   for(i=0; i < alpm_list_count(p_dbs); i++) {
-    VALUE db = Data_Wrap_Struct(Database, NULL, NULL, alpm_list_nth(p_dbs, i));
+    VALUE db = Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, alpm_list_nth(p_dbs, i));
     rb_ary_push(result, db);
   }
 
@@ -447,22 +447,22 @@ static VALUE sync_dbs(VALUE self)
  */
 void Init_alpm()
 {
-  Alpm = rb_define_class("Alpm", rb_cObject);
-  AlpmError = rb_define_class_under(Alpm, "AlpmError", rb_eStandardError);
-  rb_define_alloc_func(Alpm, allocate);
+  rb_cAlpm = rb_define_class("Alpm", rb_cObject);
+  rb_eAlpm_Error = rb_define_class_under(rb_cAlpm, "AlpmError", rb_eStandardError);
+  rb_define_alloc_func(rb_cAlpm, allocate);
 
-  rb_define_method(Alpm, "initialize", RUBY_METHOD_FUNC(initialize), 2);
-  rb_define_method(Alpm, "inspect", RUBY_METHOD_FUNC(inspect), 0);
-  rb_define_method(Alpm, "root", RUBY_METHOD_FUNC(root), 0);
-  rb_define_method(Alpm, "dbpath", RUBY_METHOD_FUNC(dbpath), 0);
-  rb_define_method(Alpm, "log", RUBY_METHOD_FUNC(set_logcb), 0);
-  rb_define_method(Alpm, "gpgdir", RUBY_METHOD_FUNC(get_gpgdir), 0);
-  rb_define_method(Alpm, "gpgdir=", RUBY_METHOD_FUNC(set_gpgdir), 1);
-  rb_define_method(Alpm, "arch", RUBY_METHOD_FUNC(get_arch), 0);
-  rb_define_method(Alpm, "arch=", RUBY_METHOD_FUNC(set_arch), 1);
-  rb_define_method(Alpm, "transaction", RUBY_METHOD_FUNC(transaction), -1);
-  rb_define_method(Alpm, "local_db", RUBY_METHOD_FUNC(local_db), 0);
-  rb_define_method(Alpm, "sync_dbs", RUBY_METHOD_FUNC(sync_dbs), 0);
+  rb_define_method(rb_cAlpm, "initialize", RUBY_METHOD_FUNC(initialize), 2);
+  rb_define_method(rb_cAlpm, "inspect", RUBY_METHOD_FUNC(inspect), 0);
+  rb_define_method(rb_cAlpm, "root", RUBY_METHOD_FUNC(root), 0);
+  rb_define_method(rb_cAlpm, "dbpath", RUBY_METHOD_FUNC(dbpath), 0);
+  rb_define_method(rb_cAlpm, "log", RUBY_METHOD_FUNC(set_logcb), 0);
+  rb_define_method(rb_cAlpm, "gpgdir", RUBY_METHOD_FUNC(get_gpgdir), 0);
+  rb_define_method(rb_cAlpm, "gpgdir=", RUBY_METHOD_FUNC(set_gpgdir), 1);
+  rb_define_method(rb_cAlpm, "arch", RUBY_METHOD_FUNC(get_arch), 0);
+  rb_define_method(rb_cAlpm, "arch=", RUBY_METHOD_FUNC(set_arch), 1);
+  rb_define_method(rb_cAlpm, "transaction", RUBY_METHOD_FUNC(transaction), -1);
+  rb_define_method(rb_cAlpm, "local_db", RUBY_METHOD_FUNC(local_db), 0);
+  rb_define_method(rb_cAlpm, "sync_dbs", RUBY_METHOD_FUNC(sync_dbs), 0);
 
   Init_database();
   Init_transaction();

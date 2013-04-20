@@ -4,7 +4,7 @@
  * Variables, etc
  ***************************************/
 
-VALUE Transaction;
+VALUE rb_cAlpm_Transaction;
 
 /** Retrieves the associated Ruby Alpm instance from the given Package
  * instance, reads the C alpm_handle_t pointer from it and returns that
@@ -99,10 +99,10 @@ static VALUE add_package2(VALUE self, VALUE package)
  */
 void Init_transaction()
 {
-  Transaction = rb_define_class_under(Alpm, "Transaction", rb_cObject);
+  rb_cAlpm_Transaction = rb_define_class_under(rb_cAlpm, "Transaction", rb_cObject);
 
-  rb_define_method(Transaction, "initialize", RUBY_METHOD_FUNC(initialize), 0); /** :nodoc: */
-  rb_define_method(Transaction, "add_package", RUBY_METHOD_FUNC(add_package), 1);
-  rb_define_method(Transaction, "<<", RUBY_METHOD_FUNC(add_package2), 1);
-  rb_define_private_method(Transaction, "alpm=", RUBY_METHOD_FUNC(set_alpm), 1);
+  rb_define_method(rb_cAlpm_Transaction, "initialize", RUBY_METHOD_FUNC(initialize), 0);
+  rb_define_method(rb_cAlpm_Transaction, "add_package", RUBY_METHOD_FUNC(add_package), 1);
+  rb_define_method(rb_cAlpm_Transaction, "<<", RUBY_METHOD_FUNC(add_package2), 1);
+  rb_define_private_method(rb_cAlpm_Transaction, "alpm=", RUBY_METHOD_FUNC(set_alpm), 1);
 }

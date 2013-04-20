@@ -4,7 +4,7 @@
  * Variables, etc
  ***************************************/
 
-VALUE Package;
+VALUE rb_cAlpm_Package;
 
 /***************************************
  * Methods
@@ -64,10 +64,10 @@ static VALUE version(VALUE self)
 
 void Init_package()
 {
-  Package = rb_define_class_under(Alpm, "Package", rb_cObject);
+  rb_cAlpm_Package = rb_define_class_under(rb_cAlpm, "Package", rb_cObject);
 
-  rb_define_method(Package, "initialize", RUBY_METHOD_FUNC(initialize), 0); /** :nodoc: */
-  rb_define_method(Package, "filename", filename, 0);
-  rb_define_method(Package, "name", name, 0);
-  rb_define_method(Package, "version", version, 0);
+  rb_define_method(rb_cAlpm_Package, "initialize", RUBY_METHOD_FUNC(initialize), 0);
+  rb_define_method(rb_cAlpm_Package, "filename", filename, 0);
+  rb_define_method(rb_cAlpm_Package, "name", name, 0);
+  rb_define_method(rb_cAlpm_Package, "version", version, 0);
 }
