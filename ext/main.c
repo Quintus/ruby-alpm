@@ -19,6 +19,54 @@ VALUE raise_last_alpm_error(alpm_handle_t* p_handle)
   return Qnil;
 }
 
+/** Takes a Ruby array of Ruby Symbols and computes the C
+ * alpm_siglevel_t from it. Raises an exception if `ary'
+ * doesn’t respond to #to_ary. */
+alpm_siglevel_t siglevel_from_ruby(VALUE ary)
+{
+  alpm_siglevel_t level = 0;
+
+  if (!(RTEST(ary = rb_check_array_type(ary)))) { /*  Single = intended */
+    VALUE str = rb_inspect(level);
+    rb_raise(rb_eTypeError, "Not an array (#to_ary): %s", StringValuePtr(str));
+    return Qnil;
+  }
+
+  if (rb_ary_includes(ary, STR2SYM("package")))
+    level |= ALPM_SIG_PACKAGE;
+  if (rb_ary_includes(ary, STR2SYM("package_optional")))
+    level |= ALPM_SIG_PACKAGE_OPTIONAL;
+  if (rb_ary_includes(ary, STR2SYM("package_marginal_ok")))
+    level |= ALPM_SIG_PACKAGE_MARGINAL_OK;
+  if (rb_ary_includes(ary, STR2SYM("package_unknown_ok")))
+    level |= ALPM_SIG_PACKAGE_UNKNOWN_OK;
+  if (rb_ary_includes(ary, STR2SYM("database")))
+    level |= ALPM_SIG_DATABASE;
+  if (rb_ary_includes(ary, STR2SYM("database_optional")))
+    level |= ALPM_SIG_DATABASE_OPTIONAL;
+  if (rb_ary_includes(ary, STR2SYM("database_marginal_ok")))
+    level |= ALPM_SIG_DATABASE_MARGINAL_OK;
+  if (rb_ary_includes(ary, STR2SYM("database_unknown_ok")))
+    level |= ALPM_SIG_DATABASE_UNKNOWN_OK;
+  if (rb_ary_includes(ary, STR2SYM("package_set")))
+    level |= ALPM_SIG_PACKAGE_SET;
+  if (rb_ary_includes(ary, STR2SYM("package_trust_set")))
+    level |= ALPM_SIG_PACKAGE_TRUST_SET;
+  if (rb_ary_includes(ary, STR2SYM("use_default")))
+    level |= ALPM_SIG_USE_DEFAULT;
+
+  return level;
+}
+
+/** Frees an alpm package loaded via alpm_pkg_load().
+ * This is the only case where we have to keep track
+ * of package memory. */
+static void free_loaded_pkg(void* ptr)
+{
+  alpm_pkg_t* p_pkg = (alpm_pkg_t*) ptr;
+  alpm_pkg_free(p_pkg);
+}
+
 void log_callback(alpm_loglevel_t level, const char* msg, ...)
 {
   VALUE levelsym;
@@ -446,38 +494,11 @@ static VALUE sync_dbs(VALUE self)
 static VALUE register_syncdb(VALUE self, VALUE reponame, VALUE ary)
 {
   alpm_handle_t* p_alpm = NULL;
-  alpm_siglevel_t level = 0;
+  alpm_siglevel_t level;
   alpm_db_t* p_db = NULL;
+
   Data_Get_Struct(self, alpm_handle_t, p_alpm);
-
-  if (!(RTEST(ary = rb_check_array_type(ary)))) { /*  Single = intended */
-    VALUE str = rb_inspect(level);
-    rb_raise(rb_eTypeError, "Not an array (#to_ary): %s", StringValuePtr(str));
-    return Qnil;
-  }
-
-  if (rb_ary_includes(ary, STR2SYM("package")))
-    level |= ALPM_SIG_PACKAGE;
-  if (rb_ary_includes(ary, STR2SYM("package_optional")))
-    level |= ALPM_SIG_PACKAGE_OPTIONAL;
-  if (rb_ary_includes(ary, STR2SYM("package_marginal_ok")))
-    level |= ALPM_SIG_PACKAGE_MARGINAL_OK;
-  if (rb_ary_includes(ary, STR2SYM("package_unknown_ok")))
-    level |= ALPM_SIG_PACKAGE_UNKNOWN_OK;
-  if (rb_ary_includes(ary, STR2SYM("database")))
-    level |= ALPM_SIG_DATABASE;
-  if (rb_ary_includes(ary, STR2SYM("database_optional")))
-    level |= ALPM_SIG_DATABASE_OPTIONAL;
-  if (rb_ary_includes(ary, STR2SYM("database_marginal_ok")))
-    level |= ALPM_SIG_DATABASE_MARGINAL_OK;
-  if (rb_ary_includes(ary, STR2SYM("database_unknown_ok")))
-    level |= ALPM_SIG_DATABASE_UNKNOWN_OK;
-  if (rb_ary_includes(ary, STR2SYM("package_set")))
-    level |= ALPM_SIG_PACKAGE_SET;
-  if (rb_ary_includes(ary, STR2SYM("package_trust_set")))
-    level |= ALPM_SIG_PACKAGE_TRUST_SET;
-  if (rb_ary_includes(ary, STR2SYM("use_default")))
-    level |= ALPM_SIG_USE_DEFAULT;
+  level = siglevel_from_ruby(ary);
 
   p_db = alpm_register_syncdb(p_alpm, StringValuePtr(reponame), level);
   if (!p_db) {
@@ -486,6 +507,44 @@ static VALUE register_syncdb(VALUE self, VALUE reponame, VALUE ary)
   }
 
   return Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, p_db);
+}
+
+/**
+ * call-seq:
+ *   load_package( path , siglevel [, full ] ) → a_package
+ *
+ * Loads a Package from a file.
+ *
+ * === Parameters
+ * [path]
+ *   The path to the file to load.
+ * [siglevel]
+ *   The PGP signature level for the package. See #register_syncdb
+ *   for the possible values in this array.
+ * [full = false]
+ *   If unset (the default), stop loading the package after the
+ *   metadata.
+ *
+ * === Return value
+ * An instance of Alpm::Package.
+ */
+static VALUE load_package(int argc, VALUE argv[], VALUE self)
+{
+  VALUE rpath, rlevel, rfull;
+  int full = 0;
+  alpm_handle_t* p_alpm = NULL;
+  alpm_pkg_t* p_pkg = NULL;
+
+  Data_Get_Struct(self, alpm_handle_t, p_alpm);
+  rb_scan_args(argc, argv, "21", &rpath, &rlevel, &rfull);
+  full = RTEST(rfull) ? 1 : 0;
+
+  if (alpm_pkg_load(p_alpm, StringValuePtr(rpath), full, siglevel_from_ruby(rlevel), &p_pkg) < 0) {
+    raise_last_alpm_error(p_alpm);
+    return Qnil;
+  }
+
+  return Data_Wrap_Struct(rb_cAlpm_Package, NULL, free_loaded_pkg, p_pkg);
 }
 
 /***************************************
@@ -538,6 +597,7 @@ void Init_alpm()
   rb_define_method(rb_cAlpm, "local_db", RUBY_METHOD_FUNC(local_db), 0);
   rb_define_method(rb_cAlpm, "sync_dbs", RUBY_METHOD_FUNC(sync_dbs), 0);
   rb_define_method(rb_cAlpm, "register_syncdb", RUBY_METHOD_FUNC(register_syncdb), 2);
+  rb_define_method(rb_cAlpm, "load_package", RUBY_METHOD_FUNC(load_package), -1);
 
   Init_database();
   Init_transaction();

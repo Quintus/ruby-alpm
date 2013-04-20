@@ -13,6 +13,7 @@ extern VALUE rb_cAlpm;
 extern VALUE rb_eAlpm_Error;
 
 VALUE raise_last_alpm_error(alpm_handle_t* p_handle);
+alpm_siglevel_t siglevel_from_ruby(VALUE ary);
 void Init_alpm();
 
 #endif
