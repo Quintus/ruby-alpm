@@ -385,7 +385,8 @@ static VALUE local_db(VALUE self)
  *   sync_dbs() → an_array
  *
  * Returns an array of Database instances, each representing a single
- * sync database.
+ * sync database. You must register your remote databases previously
+ * using #register_syncdb.
  */
 static VALUE sync_dbs(VALUE self)
 {
@@ -412,6 +413,79 @@ static VALUE sync_dbs(VALUE self)
 
   /* Return that array */
   return result;
+}
+
+/**
+ * call-seq:
+ *   register_syncdb( reponame , siglevel ) → a_database
+ *
+ * Registers a remote synchronisation database with libalpm.
+ *
+ * === Parameters
+ * [reponame]
+ *   Name of the database/repository. That is, the name of the directory
+ *   on the synchronisation server.
+ * [siglevel]
+ *   An array of one or more of the following values, denoting the security
+ *   level of the packages.
+ *   * :package
+ *   * :package_optional
+ *   * :package_marginal_ok
+ *   * :package_unknown_ok
+ *   * :database
+ *   * :database_optional
+ *   * :database_marginal_ok
+ *   * :database_unknown_ok
+ *   * :package_set
+ *   * :package_trust_set
+ *   * :use_default
+ *
+ * === Return value
+ * The newly created Database instance.
+ */
+static VALUE register_syncdb(VALUE self, VALUE reponame, VALUE ary)
+{
+  alpm_handle_t* p_alpm = NULL;
+  alpm_siglevel_t level = 0;
+  alpm_db_t* p_db = NULL;
+  Data_Get_Struct(self, alpm_handle_t, p_alpm);
+
+  if (!(RTEST(ary = rb_check_array_type(ary)))) { /*  Single = intended */
+    VALUE str = rb_inspect(level);
+    rb_raise(rb_eTypeError, "Not an array (#to_ary): %s", StringValuePtr(str));
+    return Qnil;
+  }
+
+  if (rb_ary_includes(ary, STR2SYM("package")))
+    level |= ALPM_SIG_PACKAGE;
+  if (rb_ary_includes(ary, STR2SYM("package_optional")))
+    level |= ALPM_SIG_PACKAGE_OPTIONAL;
+  if (rb_ary_includes(ary, STR2SYM("package_marginal_ok")))
+    level |= ALPM_SIG_PACKAGE_MARGINAL_OK;
+  if (rb_ary_includes(ary, STR2SYM("package_unknown_ok")))
+    level |= ALPM_SIG_PACKAGE_UNKNOWN_OK;
+  if (rb_ary_includes(ary, STR2SYM("database")))
+    level |= ALPM_SIG_DATABASE;
+  if (rb_ary_includes(ary, STR2SYM("database_optional")))
+    level |= ALPM_SIG_DATABASE_OPTIONAL;
+  if (rb_ary_includes(ary, STR2SYM("database_marginal_ok")))
+    level |= ALPM_SIG_DATABASE_MARGINAL_OK;
+  if (rb_ary_includes(ary, STR2SYM("database_unknown_ok")))
+    level |= ALPM_SIG_DATABASE_UNKNOWN_OK;
+  if (rb_ary_includes(ary, STR2SYM("package_set")))
+    level |= ALPM_SIG_PACKAGE_SET;
+  if (rb_ary_includes(ary, STR2SYM("package_trust_set")))
+    level |= ALPM_SIG_PACKAGE_TRUST_SET;
+  if (rb_ary_includes(ary, STR2SYM("use_default")))
+    level |= ALPM_SIG_USE_DEFAULT;
+
+  p_db = alpm_register_syncdb(p_alpm, StringValuePtr(reponame), level);
+  if (!p_db) {
+    rb_raise(rb_eAlpm_Error, "Failed to register sync db with libalpm");
+    return Qnil;
+  }
+
+  return Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, p_db);
 }
 
 /***************************************
@@ -463,6 +537,7 @@ void Init_alpm()
   rb_define_method(rb_cAlpm, "transaction", RUBY_METHOD_FUNC(transaction), -1);
   rb_define_method(rb_cAlpm, "local_db", RUBY_METHOD_FUNC(local_db), 0);
   rb_define_method(rb_cAlpm, "sync_dbs", RUBY_METHOD_FUNC(sync_dbs), 0);
+  rb_define_method(rb_cAlpm, "register_syncdb", RUBY_METHOD_FUNC(register_syncdb), 2);
 
   Init_database();
   Init_transaction();
