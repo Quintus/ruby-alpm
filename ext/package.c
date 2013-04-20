@@ -181,6 +181,57 @@ static VALUE installed_size(VALUE self)
   return LONG2NUM(alpm_pkg_get_isize(p_pkg));
 }
 
+/**
+ * call-seq:
+ *   self <=> other → nil, -1, 0, or 1
+ *
+ * Compares two packages and checks which one is newer based
+ * on the version numbers.
+ *
+ * === Parameter
+ * [other]
+ *   Another Package instance.
+ *
+ * === Return value
+ * If +other+ isn’t a Package instance, returns +nil+. If
+ * +other+ has another #name, returns +nil+. Otherwise,
+ * compares the version numbers of both packages and returns
+ * -1 if if +self+ is newer, 0 if both are equal, and 1 if
+ * +other+ is newer. Note that the version check includes
+ * checks on the package _epoch_ and the _pkgrel_, so the
+ * result may not be the way you expect it on the first glance.
+ * Quoting from the libalpm source in <tt>version.c</tt>:
+ *
+ * “Different epoch values for version strings will override any further
+ * comparison. If no epoch is provided, 0 is assumed.
+ *
+ * Keep in mind that the pkgrel is only compared if it is available
+ * on both versions handed to this function. For example, comparing
+ * 1.5-1 and 1.5 will yield 0; comparing 1.5-1 and 1.5-2 will yield
+ * -1 as expected. This is mainly for supporting versioned dependencies
+ * that do not include the pkrel.”
+ */
+static VALUE compare(VALUE self, VALUE other)
+{
+  alpm_pkg_t* p_pkg1 = NULL;
+  alpm_pkg_t* p_pkg2 = NULL;
+  int result;
+
+  /* Don’t compare apples with pears */
+  if (!rb_obj_is_kind_of(other, rb_cAlpm_Package))
+    return Qnil;
+
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg1);
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg2);
+
+  /* Don’t compare red apples with green apples */
+  if (strcmp(alpm_pkg_get_name(p_pkg1), alpm_pkg_get_name(p_pkg2)) != 0)
+    return Qnil;
+
+  result = alpm_pkg_vercmp(alpm_pkg_get_version(p_pkg1), alpm_pkg_get_version(p_pkg2));
+  return INT2NUM(result);
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -188,6 +239,7 @@ static VALUE installed_size(VALUE self)
 void Init_package()
 {
   rb_cAlpm_Package = rb_define_class_under(rb_cAlpm, "Package", rb_cObject);
+  rb_include_module(rb_cAlpm_Package, rb_mComparable);
 
   rb_define_method(rb_cAlpm_Package, "initialize", RUBY_METHOD_FUNC(initialize), 0);
   rb_define_method(rb_cAlpm_Package, "filename", filename, 0);
@@ -201,6 +253,7 @@ void Init_package()
   rb_define_method(rb_cAlpm_Package, "size", RUBY_METHOD_FUNC(size), 0);
   rb_define_method(rb_cAlpm_Package, "installed_size", RUBY_METHOD_FUNC(installed_size), 0);
   rb_define_method(rb_cAlpm_Package, "packager", RUBY_METHOD_FUNC(packager), 0);
+  rb_define_method(rb_cAlpm_Package, "<=>", RUBY_METHOD_FUNC(compare), 1);
 
   rb_define_alias(rb_cAlpm_Package, "desc", "description");
   rb_define_alias(rb_cAlpm_Package, "isize", "installed_size");
