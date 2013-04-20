@@ -90,6 +90,103 @@ static VALUE valid(VALUE self)
   return alpm_db_get_valid(p_db) == 0 ? Qtrue : Qfalse;
 }
 
+/**
+ * call-seq:
+ *   add_server( url )
+ *
+ * Add a server to sync from to this database.
+ *
+ * === Parameters
+ * [url]
+ *   The remote URL for this server.
+ */
+static VALUE add_server(VALUE self, VALUE url)
+{
+  alpm_db_t* p_db = NULL;
+  Data_Get_Struct(self, alpm_db_t, p_db);
+
+  alpm_db_add_server(p_db, StringValuePtr(url));
+  return Qnil;
+}
+
+/**
+ * call-seq:
+ *   remove_server( url )
+ *
+ * Remove a sync server from this database.
+ *
+ * === Parameters
+ * [url]
+ *   The remote URL for the server.
+ */
+static VALUE remove_server(VALUE self, VALUE url)
+{
+  alpm_db_t* p_db = NULL;
+  Data_Get_Struct(self, alpm_db_t, p_db);
+
+  alpm_db_remove_server(p_db, StringValuePtr(url));
+  return Qnil;
+}
+
+/**
+ * call-seq:
+ *   servers() → an_array
+ *
+ * Returns an array of all server URLs for this database.
+ */
+static VALUE get_servers(VALUE self)
+{
+  alpm_db_t* p_db = NULL;
+  alpm_list_t* p_servers = NULL;
+  alpm_list_t* p_item = NULL;
+  VALUE result = rb_ary_new();
+  Data_Get_Struct(self, alpm_db_t, p_db);
+
+  p_servers = alpm_db_get_servers(p_db);
+  if (!p_servers)
+    return result;
+
+  for(p_item = p_servers; p_item; p_item = alpm_list_next(p_item)) {
+    rb_ary_push(result, rb_str_new2((char*) p_item->data));
+  }
+
+  return rb_obj_freeze(result); /* Modifying this in Ruby land would be nonsense */
+}
+
+/**
+ * call-seq:
+ *   servers=( ary )
+ *
+ * Replace the list of servers for this database with the
+ * given one.
+ *
+ * === Parameters
+ * [servers]
+ *   An array of URLs.
+ */
+static VALUE set_servers(VALUE self, VALUE ary)
+{
+  alpm_db_t* p_db = NULL;
+  alpm_list_t servers;
+  int i;
+  Data_Get_Struct(self, alpm_db_t, p_db);
+
+  if (!RTEST(ary = rb_check_array_type(ary))) { /* Single = intended */
+    rb_raise(rb_eTypeError, "Argument is no array (#to_ary)");
+      return Qnil;
+  }
+
+  memset(&servers, '\0', sizeof(servers));
+
+  for(i=0; i < RARRAY_LEN(ary); i++) {
+    VALUE url = rb_ary_entry(ary, i);
+    alpm_list_add(&servers, StringValuePtr(url));
+  }
+
+  alpm_db_set_servers(p_db, &servers);
+  return ary;
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -113,4 +210,8 @@ void Init_database()
   rb_define_method(rb_cAlpm_Database, "name", RUBY_METHOD_FUNC(name), 0);
   rb_define_method(rb_cAlpm_Database, "inspect", RUBY_METHOD_FUNC(inspect), 0);
   rb_define_method(rb_cAlpm_Database, "valid?", RUBY_METHOD_FUNC(valid), 0);
+  rb_define_method(rb_cAlpm_Database, "add_server", RUBY_METHOD_FUNC(add_server), 1);
+  rb_define_method(rb_cAlpm_Database, "remove_server", RUBY_METHOD_FUNC(remove_server), 1);
+  rb_define_method(rb_cAlpm_Database, "servers", RUBY_METHOD_FUNC(get_servers), 0);
+  rb_define_method(rb_cAlpm_Database, "servers=", RUBY_METHOD_FUNC(set_servers), 1);
 }
