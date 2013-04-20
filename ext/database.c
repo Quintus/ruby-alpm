@@ -57,6 +57,23 @@ static VALUE get(VALUE self, VALUE name)
     return Qnil;
 }
 
+/**
+ * call-seq:
+ *   inspect() → a_string
+ *
+ * Human-readable description.
+ */
+static VALUE inspect(VALUE self)
+{
+  alpm_db_t* p_db = NULL;
+  int len;
+  char buf[256];
+  Data_Get_Struct(self, alpm_db_t, p_db);
+
+  len = sprintf(buf, "#<%s %s>", rb_obj_classname(self), alpm_db_get_name(p_db));
+  return rb_str_new(buf, len);
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -75,8 +92,8 @@ void Init_database()
 {
   rb_cAlpm_Database = rb_define_class_under(rb_cAlpm, "Database", rb_cObject);
 
-  rb_define_singleton_method(rb_cAlpm_Database, "get", RUBY_METHOD_FUNC(get), 1);
-
   rb_define_method(rb_cAlpm_Database, "initialize", RUBY_METHOD_FUNC(initialize), 0);
+  rb_define_method(rb_cAlpm_Database, "get", RUBY_METHOD_FUNC(get), 1);
   rb_define_method(rb_cAlpm_Database, "name", RUBY_METHOD_FUNC(name), 0);
+  rb_define_method(rb_cAlpm_Database, "inspect", RUBY_METHOD_FUNC(inspect), 0);
 }

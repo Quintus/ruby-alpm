@@ -58,6 +58,27 @@ static VALUE version(VALUE self)
   return rb_str_new2(alpm_pkg_get_version(p_pkg));
 }
 
+/**
+ * call-seq:
+ *   inspect() → a_string
+ *
+ * Human-readable description.
+ */
+static VALUE inspect(VALUE self)
+{
+  alpm_pkg_t* p_pkg = NULL;
+  char buf[256];
+  int len;
+  Data_Get_Struct(self, alpm_pkg_t, p_pkg);
+
+  len = sprintf(buf, "#<%s %s (%s)>",
+                rb_obj_classname(self),
+                alpm_pkg_get_name(p_pkg),
+                alpm_pkg_get_version(p_pkg));
+
+  return rb_str_new(buf, len);
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -70,4 +91,5 @@ void Init_package()
   rb_define_method(rb_cAlpm_Package, "filename", filename, 0);
   rb_define_method(rb_cAlpm_Package, "name", name, 0);
   rb_define_method(rb_cAlpm_Package, "version", version, 0);
+  rb_define_method(rb_cAlpm_Package, "inspect", RUBY_METHOD_FUNC(inspect), 0);
 }
