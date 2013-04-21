@@ -394,7 +394,7 @@ static VALUE transaction(int argc, VALUE argv[], VALUE self)
    * this method. The user now modify and exute this sole
    * transaction. */
   transaction = rb_obj_alloc(rb_cAlpm_Transaction);
-  rb_funcall(transaction, rb_intern("alpm="), 1, self);
+  rb_iv_set(transaction, "@alpm", self);
   result = rb_yield(transaction);
 
   /* When we get here we assume the user is done with

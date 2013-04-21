@@ -29,16 +29,6 @@ static VALUE initialize(VALUE self)
 }
 
 /**
- * Set the associated Alpm instance. Private, do not call
- * from the outside.
- */
-static VALUE set_alpm(VALUE self, VALUE alpm)
-{
-  rb_iv_set(self, "@alpm", alpm);
-  return alpm;
-}
-
-/**
  * call-seq:
  *   add_package( pkg )
  *
@@ -168,7 +158,6 @@ void Init_transaction()
   rb_define_method(rb_cAlpm_Transaction, "initialize", RUBY_METHOD_FUNC(initialize), 0);
   rb_define_method(rb_cAlpm_Transaction, "add_package", RUBY_METHOD_FUNC(add_package), 1);
   rb_define_method(rb_cAlpm_Transaction, "<<", RUBY_METHOD_FUNC(add_package2), 1);
-  rb_define_private_method(rb_cAlpm_Transaction, "alpm=", RUBY_METHOD_FUNC(set_alpm), 1);
   rb_define_method(rb_cAlpm_Transaction, "each_added_package", RUBY_METHOD_FUNC(each_added_package), 0);
   rb_define_method(rb_cAlpm_Transaction, "each_removed_package", RUBY_METHOD_FUNC(each_removed_package), 0);
 }
