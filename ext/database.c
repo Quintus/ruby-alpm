@@ -6,6 +6,19 @@
 
 VALUE rb_cAlpm_Database;
 
+/** Retrieves the associated Ruby Alpm instance from the given Package
+ * instance, reads the C alpm_handle_t pointer from it and returns that
+ * one. */
+static alpm_handle_t* get_alpm_from_db(VALUE db)
+{
+  alpm_handle_t* p_handle = NULL;
+  VALUE rb_alpm = rb_iv_get(db, "@alpm");
+
+  Data_Get_Struct(rb_alpm, alpm_handle_t, p_handle);
+  return p_handle;
+}
+
+
 /***************************************
  * Methods
  ***************************************/
@@ -240,6 +253,28 @@ static VALUE search(int argc, VALUE argv[], VALUE self)
   return result;
 }
 
+/**
+ * call-seq:
+ *   unregister()
+ *
+ * Unregister this database from libalpm. This method invalidates
+ * +self+, so please don’t use it anymore after you called this
+ * method.
+ */
+static VALUE unregister(VALUE self)
+{
+  alpm_db_t* p_db = NULL;
+  Data_Get_Struct(self, alpm_db_t, p_db);
+
+  if (alpm_db_unregister(p_db) < 0) {
+    raise_last_alpm_error(get_alpm_from_db(self));
+    return Qnil;
+  }
+
+  DATA_PTR(self) = NULL; /* This object is now invalid */
+  return Qnil;
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -268,4 +303,5 @@ void Init_database()
   rb_define_method(rb_cAlpm_Database, "servers", RUBY_METHOD_FUNC(get_servers), 0);
   rb_define_method(rb_cAlpm_Database, "servers=", RUBY_METHOD_FUNC(set_servers), 1);
   rb_define_method(rb_cAlpm_Database, "search", RUBY_METHOD_FUNC(search), -1);
+  rb_define_method(rb_cAlpm_Database, "unregister", RUBY_METHOD_FUNC(unregister), 0);
 }

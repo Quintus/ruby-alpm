@@ -417,6 +417,7 @@ static VALUE local_db(VALUE self)
 {
   alpm_handle_t* p_alpm = NULL;
   alpm_db_t* p_db = NULL;
+  VALUE obj;
   Data_Get_Struct(self, alpm_handle_t, p_alpm);
 
   p_db = alpm_get_localdb(p_alpm);
@@ -425,7 +426,9 @@ static VALUE local_db(VALUE self)
     return Qnil;
   }
 
-  return Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, p_db);
+  obj = Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, p_db);
+  rb_iv_set(obj, "@alpm", self);
+  return obj;
 }
 
 /**
@@ -456,6 +459,7 @@ static VALUE sync_dbs(VALUE self)
   result = rb_ary_new();
   for(i=0; i < alpm_list_count(p_dbs); i++) {
     VALUE db = Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, alpm_list_nth(p_dbs, i));
+    rb_iv_set(db, "@alpm", self);
     rb_ary_push(result, db);
   }
 
@@ -496,6 +500,7 @@ static VALUE register_syncdb(VALUE self, VALUE reponame, VALUE ary)
   alpm_handle_t* p_alpm = NULL;
   alpm_siglevel_t level;
   alpm_db_t* p_db = NULL;
+  VALUE obj;
 
   Data_Get_Struct(self, alpm_handle_t, p_alpm);
   level = siglevel_from_ruby(ary);
@@ -506,7 +511,9 @@ static VALUE register_syncdb(VALUE self, VALUE reponame, VALUE ary)
     return Qnil;
   }
 
-  return Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, p_db);
+  obj = Data_Wrap_Struct(rb_cAlpm_Database, NULL, NULL, p_db);
+  rb_iv_set(obj, "@alpm", self);
+  return obj;
 }
 
 /**
