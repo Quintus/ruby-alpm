@@ -275,6 +275,32 @@ static VALUE unregister(VALUE self)
   return Qnil;
 }
 
+/**
+ * call-seq:
+ *   update( [ force ] )
+ *
+ * Synchronise the database with the remote server(s).
+ *
+ * === Parameters
+ * [force (false)]
+ *   (undocumented by libalpm)
+ */
+static VALUE update(int argc, VALUE argv[], VALUE self)
+{
+  alpm_db_t* p_db = NULL;
+  VALUE force;
+
+  Data_Get_Struct(self, alpm_db_t, p_db);
+  rb_scan_args(argc, argv, "01", &force);
+
+  if (alpm_db_update(RTEST(force), p_db) < 0) {
+    raise_last_alpm_error(get_alpm_from_db(self));
+    return Qnil;
+  }
+
+  return Qnil;
+}
+
 /***************************************
  * Binding
  ***************************************/
@@ -304,4 +330,5 @@ void Init_database()
   rb_define_method(rb_cAlpm_Database, "servers=", RUBY_METHOD_FUNC(set_servers), 1);
   rb_define_method(rb_cAlpm_Database, "search", RUBY_METHOD_FUNC(search), -1);
   rb_define_method(rb_cAlpm_Database, "unregister", RUBY_METHOD_FUNC(unregister), 0);
+  rb_define_method(rb_cAlpm_Database, "update", RUBY_METHOD_FUNC(update), -1);
 }
