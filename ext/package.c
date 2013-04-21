@@ -194,10 +194,14 @@ static VALUE installed_size(VALUE self)
  *
  * === Return value
  * If +other+ isn’t a Package instance, returns +nil+. If
- * +other+ has another #name, returns +nil+. Otherwise,
- * compares the version numbers of both packages and returns
- * -1 if if +self+ is newer, 0 if both are equal, and 1 if
- * +other+ is newer. Note that the version check includes
+ * +other+ has another #name, compares the names using the
+ * current C locale (+LC_COLLATE+) and returns -1 if +self+
+ * comes alphabetically first, 0 if the names are equal, and
+ * 1 if +other+ comes alphabetically first.
+ *
+ * Otherwise, compares the version numbers of both packages and
+ * returns -1 if if +self+ is newer, 0 if both are equal, and 1
+ * if +other+ is newer. Note that the version check includes
  * checks on the package _epoch_ and the _pkgrel_, so the
  * result may not be the way you expect it on the first glance.
  * Quoting from the libalpm source in <tt>version.c</tt>:
@@ -209,7 +213,7 @@ static VALUE installed_size(VALUE self)
  * on both versions handed to this function. For example, comparing
  * 1.5-1 and 1.5 will yield 0; comparing 1.5-1 and 1.5-2 will yield
  * -1 as expected. This is mainly for supporting versioned dependencies
- * that do not include the pkrel.”
+ * that do not include the pkgrel.”
  */
 static VALUE compare(VALUE self, VALUE other)
 {
@@ -218,18 +222,21 @@ static VALUE compare(VALUE self, VALUE other)
   int result;
 
   /* Don’t compare apples with pears */
-  if (!rb_obj_is_kind_of(other, rb_cAlpm_Package))
+  if (!RTEST(rb_obj_is_kind_of(other, rb_cAlpm_Package)))
     return Qnil;
 
   Data_Get_Struct(self, alpm_pkg_t, p_pkg1);
-  Data_Get_Struct(self, alpm_pkg_t, p_pkg2);
+  Data_Get_Struct(other, alpm_pkg_t, p_pkg2);
 
-  /* Don’t compare red apples with green apples */
-  if (strcmp(alpm_pkg_get_name(p_pkg1), alpm_pkg_get_name(p_pkg2)) != 0)
-    return Qnil;
-
-  result = alpm_pkg_vercmp(alpm_pkg_get_version(p_pkg1), alpm_pkg_get_version(p_pkg2));
-  return INT2NUM(result);
+  /* First compare names. If they’re different, sort alphabetically. */
+  result = strcoll(alpm_pkg_get_name(p_pkg1), alpm_pkg_get_name(p_pkg2));
+  if (result == 0) {
+    /* OK, names are equal. Compare the version numbers. */
+    result = alpm_pkg_vercmp(alpm_pkg_get_version(p_pkg1), alpm_pkg_get_version(p_pkg2));
+    return INT2NUM(result);
+  }
+  else
+    return INT2NUM(result);
 }
 
 /***************************************

@@ -196,7 +196,9 @@ static VALUE set_servers(VALUE self, VALUE ary)
  * [*queries (splat)]
  *   A list of strings interpreted as POSIX regular expressions.
  *   For a package to be found, it must match _all_ queries terms,
- *   not just a single one.
+ *   not just a single one. Each query is matched against both
+ *   the package name and the package description, where only
+ *   one needs to match for the package to be considered.
  *
  *   Note that the match is not performed by Ruby or even Oniguruma/Onigmo,
  *   but directly in libalpm via the +regexp+ library in C.
