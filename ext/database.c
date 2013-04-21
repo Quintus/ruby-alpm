@@ -167,7 +167,7 @@ static VALUE get_servers(VALUE self)
 static VALUE set_servers(VALUE self, VALUE ary)
 {
   alpm_db_t* p_db = NULL;
-  alpm_list_t servers;
+  alpm_list_t* servers = NULL;
   int i;
   Data_Get_Struct(self, alpm_db_t, p_db);
 
@@ -176,15 +176,66 @@ static VALUE set_servers(VALUE self, VALUE ary)
       return Qnil;
   }
 
-  memset(&servers, '\0', sizeof(servers));
-
   for(i=0; i < RARRAY_LEN(ary); i++) {
     VALUE url = rb_ary_entry(ary, i);
-    alpm_list_add(&servers, StringValuePtr(url));
+    servers = alpm_list_add(servers, StringValuePtr(url));
   }
 
-  alpm_db_set_servers(p_db, &servers);
+  alpm_db_set_servers(p_db, servers);
+  alpm_list_free(servers);
+
   return ary;
+}
+
+/**
+ * call-seq:
+ *   search(*queries, ...) → an_array
+ *
+ * Search the database with POSIX regular expressions for packages.
+ * === Parameters
+ * [*queries (splat)]
+ *   A list of strings interpreted as POSIX regular expressions.
+ *   For a package to be found, it must match _all_ queries terms,
+ *   not just a single one.
+ *
+ *   Note that the match is not performed by Ruby or even Oniguruma/Onigmo,
+ *   but directly in libalpm via the +regexp+ library in C.
+ *
+ * === Return value
+ * An array of Package instances whose names matched _all_ regular expressions.
+ */
+static VALUE search(int argc, VALUE argv[], VALUE self)
+{
+  alpm_db_t* p_db = NULL;
+  alpm_list_t* targets = NULL;
+  alpm_list_t* packages = NULL;
+  alpm_list_t* item = NULL;
+  VALUE result = rb_ary_new();
+  int i;
+
+  Data_Get_Struct(self, alpm_db_t, p_db);
+
+  /* Convert our Ruby array to an alpm_list with C strings */
+  for(i=0; i < argc; i++) {
+    VALUE term = rb_check_string_type(argv[i]);
+    if (!RTEST(term)) {
+      rb_raise(rb_eTypeError, "Argument is not a string (#to_str)");
+      return Qnil;
+    }
+
+    targets = alpm_list_add(targets, StringValuePtr(term));
+  }
+
+  /* Perform the query */
+  packages = alpm_db_search(p_db, targets);
+  if (!packages)
+    return result;
+
+  for(item=packages; item; item = alpm_list_next(item))
+    rb_ary_push(result, Data_Wrap_Struct(rb_cAlpm_Package, NULL, NULL, item->data));
+
+  alpm_list_free(targets);
+  return result;
 }
 
 /***************************************
@@ -214,4 +265,5 @@ void Init_database()
   rb_define_method(rb_cAlpm_Database, "remove_server", RUBY_METHOD_FUNC(remove_server), 1);
   rb_define_method(rb_cAlpm_Database, "servers", RUBY_METHOD_FUNC(get_servers), 0);
   rb_define_method(rb_cAlpm_Database, "servers=", RUBY_METHOD_FUNC(set_servers), 1);
+  rb_define_method(rb_cAlpm_Database, "search", RUBY_METHOD_FUNC(search), -1);
 }
